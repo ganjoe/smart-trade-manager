@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  stm-agent:
+    build: .
+    container_name: stm-agent
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/app/config.json
+    environment:
+      - STM_CONFIG_FILE=/app/config.json
+    # Erlaubt dem Container den Zugriff auf den Host (für den TelChat-Router)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
