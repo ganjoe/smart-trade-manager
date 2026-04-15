@@ -46,17 +46,24 @@ Der STM kommuniziert nicht direkt mit dem Internet, sondern &uuml;ber einen zent
 <p>
 Alle Nachrichten m&uuml;ssen in einem speziellen JSON-Format gesendet werden, das folgende Felder enth&auml;lt:
 <i>from, to, msg_type, timestamp, byte_count</i> und <i>data</i>.
-Der STM reagiert prim&auml;r auf den Nachrichtentyp "data". Damit der Router die Verbindung nicht trennt, sendet die "Sekret&auml;rin" alle 50 Sekunden automatisch ein Lebenszeichen (Heartbeat).
+Der STM reagiert prim&auml;r auf den Nachrichtentyp "data". Damit der Router die Verbindung nicht trennt, sendet die "Sekret&auml;rin" alle 50 Sekunden automatisch ein Lebenszeichen (Heartbeat) an sich selbst.
+</p>
+<p>
+<b>Neu:</b> Die Ausgabe f&uuml;r menschliche Benutzer wurde optimiert. Statt komplexer ASCII-Tabellen wird nun ein sauberer, einzeiliger Text-Output verwendet, der in jedem Telnet-Client gut lesbar ist.
 </p>
 
 <a name="files"></a>
-<h3>4. Dateisystem und Merkzettel</h3>
+<h3>4. Dateisystem und Merkzettel (Contracts)</h3>
 <p>
-Informationen &uuml;ber laufende Trades oder Beobachtungen werden in sogenannten <b>Merkzetteln (JSON-Dateien)</b> im lokalen Dateisystem gespeichert. 
+Informationen &uuml;ber laufende Trades oder Beobachtungen werden in sogenannten <b>Merkzetteln (JSON-Dateien)</b> im Verzeichnis <i>data/contracts/active/</i> gespeichert.
+</p>
+<p>
+Der STM nutzt <b>Tool-Calling</b> (Funktionsaufrufe), um diese Dateien zu verwalten:
 </p>
 <ul>
-  <li>Wenn ein Vorgang abgeschlossen ist, wird der Merkzettel in den "Trash"-Ordner verschoben.</li>
-  <li>Aktive Merkzettel k&ouml;nnen vom "Boss" jederzeit eingesehen und aktualisiert werden, um den Kontext f&uuml;r zuk&uuml;nftige Entscheidungen zu erhalten.</li>
+  <li><b>create_contract:</b> Erm&ouml;glicht dem Boss, eine neue Akte mit Metadaten (ID, Datum, Inhalt) anzulegen.</li>
+  <li><b>get_active_contracts:</b> Liefert dem Boss eine Liste aller aktuell offenen Vorg&auml;nge.</li>
+  <li>Wenn ein Vorgang abgeschlossen ist, k&ouml;nnen die Merkzettel in den "Trash"-Ordner verschoben werden (geplante Erweiterung).</li>
 </ul>
 
 <a name="config"></a>

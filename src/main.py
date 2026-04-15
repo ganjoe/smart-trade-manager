@@ -3,6 +3,7 @@ import os
 from .models import AgentConfig, TelChatMessage
 from .telchat_client import TelChatClient
 from .llm_service import LLMService
+from . import tools
 
 class SmartTradeManagerApp:
     """
@@ -21,6 +22,9 @@ class SmartTradeManagerApp:
             
         self.client = TelChatClient(self.config)
         self.llm = LLMService(self.config)
+        
+        # Initialize directory structures for the Secretary tools
+        tools.ensure_directories()
 
     def on_message_received(self, msg: TelChatMessage) -> None:
         """

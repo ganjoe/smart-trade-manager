@@ -1,18 +1,23 @@
 import socket
 import time
+import sys
+
+msg_to_send = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Hallo"
 
 s = socket.socket()
 s.connect(("127.0.0.1", 9999))
 
-print("Registering as human...")
 s.sendall(b"human\n")
-print(s.recv(1024).decode())
-time.sleep(1)
+# read registration response
+time.sleep(0.5)
+s.recv(1024)
 
-print("Sending message to STM...")
-s.sendall(b"@stm Hallo STM, kannst du mich hoeren?\n")
+s.sendall(f"@stm {msg_to_send}\n".encode("utf-8"))
 
-print("Waiting for response from STM...")
-response = s.recv(4096).decode()
-print("Response:", response)
+print(f"Waiting for response from STM for: '{msg_to_send}'...")
+try:
+    response = s.recv(4096).decode("utf-8")
+    print("Response:\n", response)
+except Exception as e:
+    print("Socket error:", e)
 s.close()
