@@ -1,208 +1,143 @@
-# IMP_sprint_plan: Smart Trade Manager (Basis-Kommunikation)
+1. Die Konfiguration (config.py)
+Zuerst definieren wir alle Konstanten an einem Ort.
 
-*Basierend auf den Prinzipien des Senior Software Architects.*
+Python
+# config.py
+ROUTER_HOST = "127.0.0.1"
+ROUTER_PORT = 9999
+AGENT_ALIAS = "stm"
 
-## PART 1: The System Skeleton (Shared Context)
+# LM Studio Einstellungen
+LM_STUDIO_URL = "http://localhost:1234/v1"
+MODEL_ID = "local-model" # In LM Studio unter 'ID' zu finden
 
-Dieses Skeleton definiert die abstrakte Struktur, die Datentypen und Schnittstellen. Alle Kern-Parameter sind extern in eine Dateistruktur (`config.json`) ausgelagert, um den späteren Docker-Betrieb flexibel zu gestalten (sodass man Parameter wie Router-IP und LM Studio-IP reinmappen kann).
+SYSTEM_PROMPT = """
+Du bist der STM (Smart Trade Manager), ein Junior-Agent. 
+Dein Boss ist 'human'. Antworte kurz, professionell und warte auf Anweisungen.
+"""
+2. Der Netzwerk-Client (network.py)
+Dieses Modul übernimmt die gesamte TelChat-Logik: Verbindung, Registrierung und Heartbeats.
 
-```python
-from dataclasses import dataclass, field
-from typing import Dict, Any, Callable
-import time
-import json
-import os
-
-@dataclass
-class AgentConfig:
-    """Konfiguration für den Agenten (wird aus config.json geladen)"""
-    alias: str
-    router_host: str
-    router_port: int
-    llm_base_url: str
-    llm_model_name: str
-    system_prompt: str
-
-    @classmethod
-    def from_file(cls, path: str = "config.json") -> "AgentConfig":
-        """Lädt die Konfiguration aus einer JSON-Datei."""
-        pass
-
-@dataclass
-class TelChatMessage:
-    """Standardisiertes Datenobjekt gemäß TelChat-Blueprint"""
-    sender: str
-    to: str
-    msg_type: str
-    data: Dict[str, Any]
-    timestamp: float = field(default_factory=time.time)
-    
-    def to_json_line(self) -> bytes:
-        """Wandelt das Objekt in einen TelChat-kompatiblen, UTF-8 codierten JSON-String um (mit \n am Ende)."""
-        pass
-```
-
----
-
-## PART 2: Implementation Work Orders
-
-Hier sind die isolierten Arbeitsanweisungen (Work Orders) für die Junior-Agents dokumentiert. Im ersten Sprint geht es um Konfiguration, TelChat-Anbindung, LLM-Antworten und das finale Docker-Packaging.
-
-### Task ID: [T-001]
-**Target File:** `src/models.py`
-**Description:** Implementierung der streng typisierten Datenmodelle und Konfiguration.
-**Context:** Umfasst die Klassen `AgentConfig` und `TelChatMessage` aus dem Skeleton.
-**Code Stub (MANDATORY):**
-```python
-from dataclasses import dataclass, field
-from typing import Dict, Any
-import time
-import json
-import os
-
-@dataclass
-class AgentConfig:
-    alias: str
-    router_host: str
-    router_port: int
-    llm_base_url: str
-    llm_model_name: str
-    system_prompt: str
-
-    @classmethod
-    def from_file(cls, path: str = "config.json") -> "AgentConfig":
-        # TODO: Implementiere das Lesen der JSON Datei
-        pass
-
-@dataclass
-class TelChatMessage:
-    sender: str
-    to: str
-    msg_type: str
-    data: Dict[str, Any]
-    timestamp: float = field(default_factory=time.time)
-
-    def to_json_line(self) -> bytes:
-        # TODO: Implementiere Serialisierung
-        pass
-```
-**Algo/Logic Steps:**
-1. `AgentConfig.from_file`: Lese `path` mit `json.load`. Bei `FileNotFoundError` werfe einen sauberen Fehler. Instanziiere die Klasse (`cls(**data)`).
-2. `TelChatMessage.to_json_line`: Erstelle das standardisierte Dict `{"from": self.sender, "to": self.to, "msg_type": self.msg_type, "timestamp": self.timestamp, "data": self.data}`. Konvertiere das `data`-Dictionary temporär zu einem JSON-String, um die UTF-8 Bytezahl als `byte_count` Feld in das Haupt-Dictionary aufzunehmen. Konvertiere alles zu JSON, hänge ein `\n` ans Ende, wandle es in Bytes (`encode('utf-8')`) um und returne.
-**Edge Cases:** Keine Besonderheiten.
-
----
-
-### Task ID: [T-002]
-**Target File:** `src/telchat_client.py`
-**Description:** TCP-Socket Client für die asynchrone Kommunikation mit dem TelChat Router (Die Infrastruktur der "Sekretärin").
-**Context:** Verwendet `TelChatMessage` und `AgentConfig` aus `models.py`.
-**Code Stub (MANDATORY):**
-```python
+Python
 import socket
 import json
-from typing import Callable, Any
-from .models import AgentConfig, TelChatMessage
+import time
+import threading
+from config import ROUTER_HOST, ROUTER_PORT, AGENT_ALIAS
 
 class TelChatClient:
-    def __init__(self, config: AgentConfig):
-        self.config = config
-        self.sock: socket.socket | None = None
-        self._is_running = False
+    def __init__(self, message_callback):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.callback = message_callback
+        self.running = True
 
-    def connect_and_register(self) -> bool:
-        """ Verbindet zum Router und sendet die initiale msg_type: 'registration'. """
-        pass
+    def connect(self):
+        self.sock.connect((ROUTER_HOST, ROUTER_PORT))
+        # Phase 1: Registrierung laut Blueprint
+        self.send_message("router", "registration", {"alias": AGENT_ALIAS})
+        
+        # Threads starten
+        threading.Thread(target=self._receive_loop, daemon=True). प्रारंभ().start()
+        threading.Thread(target=self._heartbeat_loop, daemon=True).start()
 
-    def send_message(self, to: str, msg_type: str, data: dict) -> None:
-        """ Baut eine TelChatMessage und versendet diese über den Socket. """
-        pass
+    def send_message(self, to, msg_type, data_obj):
+        payload_str = json.dumps(data_obj)
+        msg = {
+            "from": AGENT_ALIAS,
+            "to": to,
+            "msg_type": msg_type,
+            "timestamp": time.time(),
+            "byte_count": len(payload_str.encode("utf-8")), #
+            "data": data_obj
+        }
+        full_msg = (json.dumps(msg) + "\n").encode("utf-8") #
+        self.sock.sendall(full_msg)
 
-    def listen(self, message_handler: Callable[[TelChatMessage], None]) -> None:
-        """ Blockierender Loop, der einkommende Zeilen liest und an den Handler übergibt. """
-        pass
-```
-**Algo/Logic Steps:**
-1. `connect_and_register`: Öffne `socket(AF_INET, SOCK_STREAM)`. Verbinde zu `router_host` & `router_port`. Sende eine initiale Registrierung: `send_message("router", "registration", {"alias": self.config.alias})`. Setze `_is_running = True`.
-2. `listen`: Eingehende Pakete empfangen (`recv`) und per Buffer an `\n` splitten. Einzelne JSON Strings per `json.loads` verarbeiten, in `TelChatMessage` Objekte verpacken und `message_handler(msg)` aufrufen.
-**Edge Cases:**
-- System-`ACKs` oder `error`-Nachrichten vom Router abfangen. (Errors gerne in stdout loggen).
+    def _receive_loop(self):
+        buffer = ""
+        while self.running:
+            try:
+                data = self.sock.recv(4096).decode("utf-8")
+                if not data: break
+                buffer += data
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    if line.strip():
+                        self.callback(json.loads(line))
+            except Exception as e:
+                print(f"Fehler beim Empfang: {e}")
+                break
 
----
+    def _heartbeat_loop(self):
+        while self.running:
+            time.sleep(45) # Sicherer Puffer vor dem 60s Watchdog
+            self.send_message("router", "ack", {"status": "alive"})
+3. Die KI-Schnittstelle (engine.py)
+Hier nutzen wir die OpenAI-kompatible API von LM Studio.
 
-### Task ID: [T-003]
-**Target File:** `src/llm_service.py`
-**Description:** Wrapper für den API-Aufruf zu LM Studio über den openai client.
-**Context:** Nutzt das offizielle `openai` pip-Package, injiziert System-Prompts aus der Config.
-**Code Stub (MANDATORY):**
-```python
-from openai import OpenAI
-from .models import AgentConfig
+Python
+import requests
+from config import LM_STUDIO_URL, SYSTEM_PROMPT, MODEL_ID
 
-class LLMService:
-    def __init__(self, config: AgentConfig):
-        self.config = config
-        self.client = OpenAI(base_url=self.config.llm_base_url, api_key="lm-studio")
-
-    def generate_response(self, user_text: str) -> str:
-        """ Befragt das Modell und liefert den reinen Antworttext. """
-        pass
-```
-**Algo/Logic Steps:**
-1. Stelle den `system`-Prompt auf `self.config.system_prompt` (innerhalb der `messages`-List).
-2. Hänge den `user_text` an.
-3. Führe den synchronen ChatCompletions-Call aus. Modelname=`self.config.llm_model_name`.
-4. Gib `response.choices[0].message.content` zurück.
-**Edge Cases:** Catch alle `openai` API-ConnectionErrors (z.B. wenn LM Studio noch bootet).
-
----
-
-### Task ID: [T-004]
-**Target File:** `src/main.py`
-**Description:** App-Orchestrierung (Vereinigung von Boss und Sekretärin). Lädt die dynamische config.json Datei.
-**Context:** Importiert `AgentConfig`, `TelChatClient` und `LLMService`. 
-**Code Stub (MANDATORY):**
-```python
-import sys
-from .models import AgentConfig
-from .telchat_client import TelChatClient
-from .llm_service import LLMService
-
-class SmartTradeManagerApp:
-    def __init__(self, config_path: str = "config.json"):
+class LLMEngine:
+    def generate_response(self, user_text):
+        payload = {
+            "model": MODEL_ID,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_text}
+            ],
+            "temperature": 0.7
+        }
         try:
-            self.config = AgentConfig.from_file(config_path)
+            response = requests.post(f"{LM_STUDIO_URL}/chat/completions", json=payload)
+            return response.json()['choices'][0]['message']['content']
         except Exception as e:
-            print(f"Failed to load config: {e}")
-            sys.exit(1)
-            
-        self.client = TelChatClient(self.config)
-        self.llm = LLMService(self.config)
+            return f"Fehler bei KI-Anfrage: {e}"
+4. Der Haupt-Ablauf (main.py)
+Dieses Skript verbindet die Teile. Es reagiert auf Nachrichten von human.
 
-    def on_message_received(self, msg) -> None:
-        pass
+Python
+from network import TelChatClient
+from engine import LLMEngine
+import time
 
-    def start(self):
-        pass
+engine = LLMEngine()
+
+def on_message_received(msg):
+    # Nur reagieren, wenn die Nachricht für uns ist und Daten enthält
+    if msg.get("to") == "stm" and msg.get("msg_type") == "data":
+        sender = msg.get("from")
+        user_input = msg.get("data", {}).get("text", str(msg.get("data")))
+        
+        print(f"Nachricht von {sender} erhalten: {user_input}")
+        
+        # KI antworten lassen
+        ai_reply = engine.generate_response(user_input)
+        
+        # Antwort zurückschicken
+        client.send_message(sender, "data", {"text": ai_reply})
+
+client = TelChatClient(on_message_received)
 
 if __name__ == "__main__":
-    SmartTradeManagerApp().start()
-```
-**Algo/Logic Steps:**
-1. `start`: Rufe `self.client.connect_and_register()` auf. Danach blockierend `self.client.listen(self.on_message_received)`.
-2. `on_message_received`: Wenn `msg.msg_type == "data"`, lies den Text aus `msg.data`, hol dir über `self.llm.generate_response()` eine Antwort vom LLM und sende diese mit `self.client.send_message` als "data" formatierte Antwort an `msg.sender` zurück.
+    print("STM Agent startet...")
+    client.connect()
+    
+    # Programm am Laufen halten
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        client.running = False
+        print("Agent beendet.")
+Was dieser Code erfüllt (Checkliste):
+Netzwerk: Nutzt TCP-Sockets auf Port 9999 mit Newline-Terminierung.
 
----
+Protokoll: Implementiert das 6-Felder-Pflichtschema (from, to, msg_type, timestamp, byte_count, data).
 
-### Task ID: [T-005]
-**Target Files:** `Dockerfile`, `requirements.txt`, `config.example.json`
-**Description:** Containerisierung und Dependency-Management.
-**Context:** Das Programm ist eine reine Hintergrundapplikation (keine freigegebenen Ports notwendig).
-**Algo/Logic Steps:**
-1. **requirements.txt**: Füge das `openai` Paket hinzu.
-2. **Dockerfile**: Nutze `FROM python:3.11-slim` (oder neuer). 
-   - Initialisiere das working directory `/app`
-   - Kopiere `requirements.txt` -> `pip install -r`
-   - Kopiere den Ordner `src/` nach `/app/src/`
-   - Definiere das Startkommando: `CMD ["python", "-m", "src.main"]`
-3. **config.example.json**: Erstelle eine JSON-Vorlage. Hinweis an die Benutzer: Im Docker-Umfeld muss die `router_host` IP und `llm_base_url` auf `host.docker.internal` (bei Docker Desktop) oder die statische IP des Hosts zeigen, um auf die Socket/API zugreifen zu können!
+Lebenszyklus: Führt die Registrierung sofort aus und hält die Verbindung durch Heartbeats stabil.
+
+KI: Integriert LM Studio über die REST-API mit einem definierten System-Prompt.
+
+Erweiterbarkeit: Die on_message_received-Funktion kann später leicht um Tool-Calls oder Scheduler-Prüfungen ergänzt werden.

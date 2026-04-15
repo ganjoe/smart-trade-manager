@@ -1,0 +1,87 @@
+<html>
+<head>
+<title>STM - Smart Trade Manager V1.0 Handbuch</title>
+</head>
+<body bgcolor="#121212" text="#E0E0E0" link="#82AAFF" vlink="#C792EA">
+
+<h1 align="center">*** Smart Trade Manager (STM) ***</h1>
+<h2 align="center">Software-Handbuch Version 1.0</h2>
+<hr>
+
+<h3>Inhaltsverzeichnis</h3>
+<ul>
+  <li><a href="#intro">1. Einleitung und Zweck</a></li>
+  <li><a href="#paradigm">2. Das Boss-Sekretärin-Paradigma</a></li>
+  <li><a href="#comm">3. Kommunikation (TelChat-Protokoll)</a></li>
+  <li><a href="#files">4. Dateisystem und Merkzettel</a></li>
+  <li><a href="#config">5. Konfiguration des Systems</a></li>
+  <li><a href="#start">6. Starten der Anwendung</a></li>
+</ul>
+<hr>
+
+<a name="intro"></a>
+<h3>1. Einleitung und Zweck</h3>
+<p>
+Der <b>Smart Trade Manager (STM)</b> ist ein intelligenter Handelsassistent, der darauf ausgelegt ist, komplexe Handelsentscheidungen in Echtzeit zu unterst&uuml;tzen. Er fungiert als Bindeglied zwischen dem menschlichen Operator ("Human") und verschiedenen Datenquellen sowie Analyse-Agenten (z.B. STA - Senior Technical Analyst).
+</p>
+<p>
+Die Hauptaufgabe des STM ist es, Marktbedingungen zu &uuml;berwachen, "Merkzettel" (Contracts) zu verwalten und auf Anweisungen zu reagieren, um Handelschancen zu identifizieren oder bestehende Positionen zu kontrollieren.
+</p>
+
+<a name="paradigm"></a>
+<h3>2. Das Boss-Sekretärin-Paradigma</h3>
+<p>
+Die Software folgt einer strikten Trennung der Verantwortlichkeiten:
+</p>
+<ul>
+  <li><b>Der Boss (Das LLM):</b> Das "Gehirn" des Agenten. Hier werden die strategischen Entscheidungen getroffen. Der Boss verarbeitet Textnachrichten und generiert Antworten basierend auf seinem System-Prompt.</li>
+  <li><b>Die Sekret&auml;rin (Python-Infrastruktur):</b> Die "ausf&uuml;hrende Hand". Sie k&uuml;mmert sich um den Netzwerk-Socket, das korrekte Formatieren des JSON-Protokolls, den Heartbeat (Ping/Pong) zum Router und das Lesen/Schreiben von Dateien auf der Festplatte.</li>
+</ul>
+
+<a name="comm"></a>
+<h3>3. Kommunikation (TelChat-Protokoll)</h3>
+<p>
+Der STM kommuniziert nicht direkt mit dem Internet, sondern &uuml;ber einen zentralen <b>TelChat-Router</b>. 
+</p>
+<p>
+Alle Nachrichten m&uuml;ssen in einem speziellen JSON-Format gesendet werden, das folgende Felder enth&auml;lt:
+<i>from, to, msg_type, timestamp, byte_count</i> und <i>data</i>.
+Der STM reagiert prim&auml;r auf den Nachrichtentyp "data". Damit der Router die Verbindung nicht trennt, sendet die "Sekret&auml;rin" alle 50 Sekunden automatisch ein Lebenszeichen (Heartbeat).
+</p>
+
+<a name="files"></a>
+<h3>4. Dateisystem und Merkzettel</h3>
+<p>
+Informationen &uuml;ber laufende Trades oder Beobachtungen werden in sogenannten <b>Merkzetteln (JSON-Dateien)</b> im lokalen Dateisystem gespeichert. 
+</p>
+<ul>
+  <li>Wenn ein Vorgang abgeschlossen ist, wird der Merkzettel in den "Trash"-Ordner verschoben.</li>
+  <li>Aktive Merkzettel k&ouml;nnen vom "Boss" jederzeit eingesehen und aktualisiert werden, um den Kontext f&uuml;r zuk&uuml;nftige Entscheidungen zu erhalten.</li>
+</ul>
+
+<a name="config"></a>
+<h3>5. Konfiguration des Systems</h3>
+<p>
+Bevor das Programm gestartet wird, muss die Datei <b>config.json</b> korrekt ausgef&uuml;llt sein. Hier werden wichtige Parameter festgelegt:
+</p>
+<ul>
+  <li><b>router_host:</b> Die IP-Adresse des TelChat-Routers (meist 127.0.0.1).</li>
+  <li><b>llm_base_url:</b> Die Adresse des LM Studio Servers (z.B. 10.20.0.23).</li>
+  <li><b>system_prompt:</b> Die Identit&auml;t des Agenten (z.B. "Du bist ein junior-agent...").</li>
+</ul>
+
+<a name="start"></a>
+<h3>6. Starten der Anwendung</h3>
+<p>
+Gehen Sie in das Hauptverzeichnis und f&uuml;hren Sie den folgenden Befehl in der Konsole aus:
+</p>
+<pre>    python3 -m src.main</pre>
+<p>
+Alternativ kann die Anwendung via Docker gestartet werden, wenn ein Dockerfile im Verzeichnis vorhanden ist.
+</p>
+
+<hr>
+<p align="center"><i>Dokumentation erstellt im Jahre 1996 (simuliert). Alle Rechte vorbehalten.</i></p>
+
+</body>
+</html>

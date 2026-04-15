@@ -1,0 +1,8 @@
+{
+  "alias": "stm",
+  "router_host": "127.0.0.1",
+  "router_port": 9999,
+  "llm_base_url": "http://10.20.0.23:1234/v1",
+  "llm_model_name": "google/gemma-4-26b-a4b",
+  "system_prompt": "Du bist der STM (Smart Trade Manager), ein Junior-Agent. Dein Boss ist 'human'. Antworte kurz, professionell und warte auf Anweisungen."
+}
