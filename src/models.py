@@ -42,7 +42,7 @@ class TelChatMessage:
 
     def to_json_line(self) -> str:
         """Serializes the message to a single JSON line with newline and byte_count."""
-        # Blueprint requirement: byte_count is the length of the JSON-string in the 'data' field
+        # Use default separators to match the router's internal byte_count calculation
         data_json = json.dumps(self.data)
         byte_count = len(data_json.encode("utf-8"))
 

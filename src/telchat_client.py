@@ -45,8 +45,8 @@ class TelChatClient:
             time.sleep(50)
             if self._is_running:
                 try:
-                    # ACKs or simple data can reset the watchdog
-                    self.send_message("router", "ack", {"ping": "pong"})
+                    # Send heartbeat to self instead of "router" to avoid connection errors
+                    self.send_message(self.config.alias, "ack", {"ping": "pong"})
                 except Exception:
                     self._is_running = False
                     break
