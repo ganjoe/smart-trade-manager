@@ -8,6 +8,8 @@ services:
     # Das Volume-Mount wurde entfernt, da Portainer relative Pfade im Editor nicht 
     # auflösen kann, wenn die Datei nicht manuell im Portainer-Volume abgelegt wurde.
     # Die Konfiguration wird jetzt direkt beim Build in das Image kopiert.
+    volumes:
+      - ./data:/app/data
     environment:
       - STM_CONFIG_FILE=/app/config.json
     extra_hosts:
