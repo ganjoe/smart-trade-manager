@@ -5,10 +5,10 @@ services:
     build: .
     container_name: stm-agent
     restart: unless-stopped
-    volumes:
-      - ./config.json:/app/config.json
+    # Das Volume-Mount wurde entfernt, da Portainer relative Pfade im Editor nicht 
+    # auflösen kann, wenn die Datei nicht manuell im Portainer-Volume abgelegt wurde.
+    # Die Konfiguration wird jetzt direkt beim Build in das Image kopiert.
     environment:
       - STM_CONFIG_FILE=/app/config.json
-    # Erlaubt dem Container den Zugriff auf den Host (für den TelChat-Router)
     extra_hosts:
       - "host.docker.internal:host-gateway"

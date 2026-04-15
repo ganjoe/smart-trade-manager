@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY src/ ./src/
-# Copy example config as default config
-COPY config.example.json ./config.json
+# Copy the actual config into the image
+COPY config.json ./config.json
 
 # Entry point
 CMD ["python", "-m", "src.main"]
