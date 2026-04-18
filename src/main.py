@@ -23,6 +23,10 @@ class SmartTradeManagerApp:
         self.client = TelChatClient(self.config)
         self.llm = LLMService(self.config)
         
+        # Ensure the LLM model is loaded before starting the agent
+        if not self.llm.ensure_model_loaded():
+            print("[!] Warning: Model could not be verified/loaded. AI responses might fail.")
+        
         # Initialize directory structures for the Secretary tools
         tools.ensure_directories()
 

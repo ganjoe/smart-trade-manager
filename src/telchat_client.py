@@ -40,9 +40,9 @@ class TelChatClient:
             return False
 
     def _heartbeat_loop(self):
-        """Sends a heartbeat every 50 seconds to keep the router connection alive (60s watchdog)."""
+        """Sends a heartbeat every 20 seconds to keep the router connection alive (60s watchdog)."""
         while self._is_running:
-            time.sleep(50)
+            time.sleep(20)
             if self._is_running:
                 try:
                     # Send heartbeat to self instead of "router" to avoid connection errors

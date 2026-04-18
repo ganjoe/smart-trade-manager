@@ -1,0 +1,6 @@
+{
+    "id": "ORCL_sell_strategy",
+    "created_at": 1776286503.5165226,
+    "last_checked": 1776286503.5165226,
+    "content": "Monitor ORCL price. Trigger a sell order if the daily closing price falls below the 10-period Simple Moving Average (SMA)."
+}

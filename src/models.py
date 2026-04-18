@@ -12,6 +12,7 @@ class AgentConfig:
     router_port: int
     llm_base_url: str
     llm_model_name: str
+    llm_gpu_offload: str
     system_prompt: str
 
     @classmethod
