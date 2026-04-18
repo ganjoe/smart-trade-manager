@@ -21,7 +21,14 @@ class SmartTradeManagerApp:
             sys.exit(1)
             
         self.client = TelChatClient(self.config)
-        self.llm = LLMService(self.config)
+        self.llm = LLMService(
+            base_url=self.config.llm_base_url,
+            model_name=self.config.llm_model_name,
+            system_prompt=self.config.system_prompt,
+            gpu_offload=self.config.llm_gpu_offload,
+            tools_schema=tools.TOOLS_SCHEMA,
+            tool_executor=tools.execute_tool_call
+        )
         
         # Ensure the LLM model is loaded before starting the agent
         if not self.llm.ensure_model_loaded():

@@ -1,33 +1,42 @@
 import json
 import requests
 from openai import OpenAI
-from .models import AgentConfig
-from . import tools
 
 class LLMService:
     """
-    Wrapper for the LM Studio / OpenAI API communication.
-    Acts as the 'Boss' brain for the agent.
+    Standalone wrapper for the LM Studio / OpenAI API communication.
+    Supports dependency injection for configuration and tools.
+    Maintains its own conversation history (context memory).
     """
-    def __init__(self, config: AgentConfig):
-        self.config = config
+    def __init__(self, base_url: str, model_name: str, system_prompt: str, tools_schema: list = None, tool_executor: callable = None, gpu_offload: str = "max"):
+        self.base_url = base_url
+        self.model_name = model_name
+        self.system_prompt = system_prompt
+        self.gpu_offload = gpu_offload
+        self.tools_schema = tools_schema
+        self.tool_executor = tool_executor
+
         # Derive LM Studio Management API URL from the base URL
-        # e.g., http://host:port/v1 -> http://host:port/api/v1
-        base = self.config.llm_base_url.rstrip('/')
+        base = self.base_url.rstrip('/')
         if base.endswith('/v1'):
             self.mgmt_url = base.replace('/v1', '/api/v1')
         else:
             self.mgmt_url = f"{base}/api/v1"
 
         # LM Studio usually doesn't need an API key, but the client requires a string.
-        self.client = OpenAI(base_url=self.config.llm_base_url, api_key="lm-studio")
+        self.client = OpenAI(base_url=self.base_url, api_key="lm-studio")
+
+        # Initialize history with system prompt
+        self.messages = [
+            {"role": "system", "content": self.system_prompt}
+        ]
 
     def ensure_model_loaded(self) -> bool:
         """
         Checks if the configured model is loaded in LM Studio and loads it if necessary.
         Returns True if the model is ready, False otherwise.
         """
-        model_key = self.config.llm_model_name
+        model_key = self.model_name
         print(f"[LLM] Checking status for model: {model_key}")
         
         try:
@@ -50,7 +59,7 @@ class LLMService:
                 return True
                 
             # 2. Load the model
-            print(f"[LLM] Model found but not loaded. Attempting to load with GPU={self.config.llm_gpu_offload}...")
+            print(f"[LLM] Model found but not loaded. Attempting to load with GPU={self.gpu_offload}...")
             payload = {
                 "model": model_key
             }
@@ -67,35 +76,36 @@ class LLMService:
             print(f"[LLM] Connection error to Management API: {e}")
             return False
 
-
     def generate_response(self, user_text: str) -> str:
-        """Sends a query to the LLM and returns the text response."""
+        """Sends a query to the LLM and returns the text response, keeping history."""
         # Ensure the model is loaded before every request
         if not self.ensure_model_loaded():
-            return f"konnte das konfigurierte KI-Modell {self.config.llm_model_name} in LM Studio nicht laden"
+            return f"konnte das konfigurierte KI-Modell {self.model_name} in LM Studio nicht laden"
 
         try:
-            messages = [
-                {"role": "system", "content": self.config.system_prompt},
-                {"role": "user", "content": user_text}
-            ]
+            # Append new user message to history
+            self.messages.append({"role": "user", "content": user_text})
             
             # Loop max 5 times to resolve all tool sequences
             for i in range(5):
-                response = self.client.chat.completions.create(
-                    model=self.config.llm_model_name,
-                    messages=messages,
-                    tools=tools.TOOLS_SCHEMA,
-                    temperature=0.7
-                )
+                # Prepare arguments for the API call
+                api_kwargs = {
+                    "model": self.model_name,
+                    "messages": self.messages,
+                    "temperature": 0.7
+                }
                 
+                # Only add tools if schema and executor are provided
+                if self.tools_schema and self.tool_executor:
+                    api_kwargs["tools"] = self.tools_schema
+
+                response = self.client.chat.completions.create(**api_kwargs)
                 response_message = response.choices[0].message
                 
                 # Check if model wants to call tools
-                if response_message.tool_calls:
+                if response_message.tool_calls and self.tool_executor:
                     # Append the assistant message with tool_calls back to history
-                    # We must append the raw message object to satisfy OpenAI API schema
-                    messages.append(response_message)
+                    self.messages.append(response_message)
                     
                     for tool_call in response_message.tool_calls:
                         func_name = tool_call.function.name
@@ -106,12 +116,12 @@ class LLMService:
                         except json.JSONDecodeError:
                             args = {}
                             
-                        # Execute Python function
-                        func_result = tools.execute_tool_call(func_name, args)
+                        # Execute the injected Python function
+                        func_result = self.tool_executor(func_name, args)
                         print(f"[LLM] Tool '{func_name}' result: {func_result}")
                         
-                        # Add tool result to conversation
-                        messages.append({
+                        # Add tool result to conversation history
+                        self.messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "name": func_name,
@@ -123,7 +133,11 @@ class LLMService:
                 else:
                     # Final text response
                     content = response_message.content
-                    return content if content else "Keine Antwort von LM Studio"
+                    if content:
+                        # Save assistant response to history
+                        self.messages.append({"role": "assistant", "content": content})
+                        return content
+                    return "Keine Antwort von LM Studio"
                     
             return "Fehler: Die maximale Anzahl an Tool-Aufrufen wurde ueberschritten."
         except Exception as e:
